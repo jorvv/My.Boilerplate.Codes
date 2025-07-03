@@ -27,14 +27,14 @@ public abstract class Entity
         IdentityId identity = new(Guid.CreateVersion7());
         Id = identity;
     }
-    public IdentityId Id { get; set; }
+    public IdentityId Id { get; private set; }
     public IdentityId CreatedBy { get; private set; } = default!;
     public DateTimeOffset CreatedAt { get; private set; } = default!;
     public IdentityId? UpdatedBy { get; private set; }
     public DateTimeOffset? UpdatedAt { get; private set; }
     public IdentityId? DeletedBy { get; private set; }
     public DateTimeOffset? DeletedAt { get; private set; }
-    public bool IsDeleted { get; set; }
+    public bool IsDeleted { get; private set; }
 
     public void Delete()
     {
