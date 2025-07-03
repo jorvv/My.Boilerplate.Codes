@@ -12,6 +12,7 @@ Bu documentation, .NET projelerimde sıklıkla kullandığım temel kod parçala
 6. [Permission Behavior](#permission-behavior)
 7. [Exception Handler](#exception-handler)
 8. [DbContext Configuration](#dbcontext-configuration)
+9. [OData](#odata)
 
 ---
 
@@ -402,6 +403,42 @@ protected override void ConfigureConventions(ModelConfigurationBuilder configura
 
 ---
 
+## OData
+
+OData yı kullanmak istiyorsak yapmamız gereken IoC service registration işlemi ve örnek controller
+
+IoC Container (program.cs)
+```csharp
+builder.Services
+            .AddControllers()
+            .AddOData(opt =>
+            opt.Select()
+                .Filter()
+                .Count()
+                .Expand()
+                .OrderBy()
+                .SetMaxTop(null)
+            );
+```
+
+OData Controller
+```csharp
+[Route("api/[controller]")]
+[ApiController]
+[EnableQuery]
+public class ODataController : ControllerBase
+{
+    public static IEdmModel GetEdmModel()
+    {
+        ODataConventionModelBuilder builder = new();
+        builder.EnableLowerCamelCase();
+        //builder.EntitySet<UserResponse>("users");
+        return builder.GetEdmModel();
+    }
+}
+```
+
+---
 ## Kullanım Notları
 
 - Bu kod parçaları Clean Architecture ve DDD prensipleri göz önünde bulundurularak hazırlanmıştır
