@@ -291,7 +291,7 @@ public sealed class PermissionBehavior<TRequest, TResponse>(
 
 public sealed class PermissionAttribute : Attribute
 {
-    public string Permission { get; }
+    public string? Permission { get; }
 
     public PermissionAttribute()
     {
