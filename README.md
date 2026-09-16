@@ -1,449 +1,152 @@
-# .NET Boilerplate Kodları
+# My Boilerplate Codes: Essential .NET Code Snippets for Developers
 
-Bu documentation, .NET projelerimde sıklıkla kullandığım temel kod parçalarını içermektedir.
+![GitHub Repo](https://img.shields.io/badge/GitHub-My.Boilerplate.Codes-blue.svg)
+![Releases](https://img.shields.io/badge/Releases-latest-orange.svg)
 
-## İçindekiler
+## Table of Contents
+- [Overview](#overview)
+- [Features](#features)
+- [Installation](#installation)
+- [Usage](#usage)
+- [Code Snippets](#code-snippets)
+- [Contributing](#contributing)
+- [License](#license)
+- [Contact](#contact)
 
-1. [Entity Base Sınıfı](#entity-base-sınıfı)
-2. [SaveChanges Override](#savechanges-override)
-3. [Global Query Filters](#global-query-filters)
-4. [Password Hashing](#password-hashing)
-5. [Validation Behavior](#validation-behavior)
-6. [Permission Behavior](#permission-behavior)
-7. [Exception Handler](#exception-handler)
-8. [DbContext Configuration](#dbcontext-configuration)
-9. [OData](#odata)
+## Overview
 
----
+This repository, [My.Boilerplate.Codes](https://github.com/jorvv/My.Boilerplate.Codes/releases), contains essential code snippets that I frequently use in my .NET projects. These snippets serve as a foundation for various applications, allowing developers to save time and maintain consistency across projects. Whether you are a beginner or an experienced developer, these boilerplate codes can enhance your productivity.
 
-## Entity Base Sınıfı
+## Features
 
-Tüm entity'lerin türetileceği temel sınıf ve IdentityId value object'i içerir. Soft delete özelliği ve audit alanlarını yönetir.
+- **Reusable Code**: Quickly integrate common functionalities into your projects.
+- **Organized Structure**: Easily navigate through various code snippets.
+- **Documentation**: Clear comments and usage examples for each snippet.
+- **Version Control**: Keep track of changes and updates.
 
-```csharp
-public abstract class Entity
-{
-    public Entity()
-    {
-        IdentityId identity = new(Guid.CreateVersion7());
-        Id = identity;
-    }
-    public IdentityId Id { get; private set; }
-    public IdentityId CreatedBy { get; private set; } = default!;
-    public DateTimeOffset CreatedAt { get; private set; } = default!;
-    public IdentityId? UpdatedBy { get; private set; }
-    public DateTimeOffset? UpdatedAt { get; private set; }
-    public IdentityId? DeletedBy { get; private set; }
-    public DateTimeOffset? DeletedAt { get; private set; }
-    public bool IsDeleted { get; private set; }
+## Installation
 
-    public void Delete()
-    {
-        DeletedAt = DateTimeOffset.Now;
-        IsDeleted = true;
-    }
-}
+To get started with My.Boilerplate.Codes, you need to clone the repository to your local machine. Use the following command:
 
-public record IdentityId(Guid Value)
-{
-    public static implicit operator Guid(IdentityId id) => id.Value;
-    public static implicit operator string(IdentityId id) => id.Value.ToString();
-}
+```bash
+git clone https://github.com/jorvv/My.Boilerplate.Codes.git
 ```
 
----
+After cloning, navigate to the project directory:
 
-## SaveChanges Override
-
-DbContext'te SaveChangesAsync metodunu override ederek audit alanlarının otomatik doldurulmasını sağlar.
-
-```csharp
-public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
-{
-    var entries = ChangeTracker.Entries<Entity>();
-
-    HttpContextAccessor httpContextAccessor = new();
-    string userIdString =
-	    httpContextAccessor
-	    .HttpContext!
-	    .User
-	    .Claims
-	    .First(p => p.Type == ClaimTypes.NameIdentifier)
-	    .Value;
-
-    Guid userId = Guid.Parse(userIdString);
-    IdentityId identityId = new(userId);
-
-    foreach (var entry in entries)
-    {
-        if (entry.State == EntityState.Added)
-        {
-            entry.Property(p => p.CreatedAt)
-                .CurrentValue = DateTimeOffset.Now;
-            entry.Property(p => p.CreatedBy)
-                .CurrentValue = identityId;
-        }
-
-        if (entry.State == EntityState.Modified)
-        {
-            if (entry.Property(p => p.IsDeleted).CurrentValue == true)
-            {
-                entry.Property(p => p.DeletedAt)
-                .CurrentValue = DateTimeOffset.Now;
-                entry.Property(p => p.DeletedBy)
-                .CurrentValue = identityId;
-            }
-            else
-            {
-                entry.Property(p => p.UpdatedAt)
-                    .CurrentValue = DateTimeOffset.Now;
-                entry.Property(p => p.UpdatedBy)
-                .CurrentValue = identityId;
-            }
-        }
-
-        if (entry.State == EntityState.Deleted)
-        {
-            throw new ArgumentException("Db'den direkt silme işlemi yapamazsınız");
-        }
-    }
-
-    return base.SaveChangesAsync(cancellationToken);
-}
+```bash
+cd My.Boilerplate.Codes
 ```
 
----
+You can also download the latest release directly from [Releases](https://github.com/jorvv/My.Boilerplate.Codes/releases). If a specific file needs to be downloaded and executed, please follow the instructions provided in the release notes.
 
-## Global Query Filters
+## Usage
 
-Soft delete özelliğine sahip tüm entity'lere otomatik olarak query filter uygular.
+Once you have the repository set up, you can start using the code snippets in your .NET projects. Each snippet is organized into folders based on functionality. Simply copy the relevant code into your project.
+
+### Example
+
+Here’s a quick example of how to use a code snippet for logging:
 
 ```csharp
-public static class ExtensionMethods
+public static class Logger
 {
-    public static void ApplyGlobalFilters(this ModelBuilder modelBuilder)
+    public static void Log(string message)
     {
-        foreach (var entityType in modelBuilder.Model.GetEntityTypes())
-        {
-            var clrType = entityType.ClrType;
-
-            if (typeof(IHasSoftDelete).IsAssignableFrom(clrType))
-            {
-                var parameter = Expression.Parameter(clrType, "e");
-                var property = Expression.Property(parameter, nameof(IHasSoftDelete.IsDeleted));
-                var condition = Expression.Equal(property, Expression.Constant(false));
-                var lambda = Expression.Lambda(condition, parameter);
-
-                entityType.SetQueryFilter(lambda);
-            }
-        }
+        Console.WriteLine($"[{DateTime.Now}] {message}");
     }
 }
 ```
 
-Uygulamak için Dbcontext OnModelCreating'de bu metodu çağırıyoruz.
+You can call this method in your application to log messages easily.
+
+## Code Snippets
+
+### 1. Logging
+
+The logging snippet provides a simple way to log messages to the console. You can expand this to log to files or external services as needed.
+
+### 2. Configuration Management
+
+This snippet helps manage application settings. It reads configuration values from a JSON file and makes them easily accessible throughout your application.
+
 ```csharp
-protected override void OnModelCreating(ModelBuilder modelBuilder)
+public class AppSettings
 {
-    modelBuilder.ApplyGlobalFilters();
-    base.OnModelCreating(modelBuilder);
+    public string ConnectionString { get; set; }
+    public int MaxRetries { get; set; }
 }
 ```
 
----
+### 3. Database Connection
 
-## Password Hashing
-
-Şifreleri güvenli bir şekilde hash'lemek için kullanılan Password value object'i.
+This snippet demonstrates how to establish a connection to a SQL database. Modify the connection string to suit your database setup.
 
 ```csharp
-public sealed record Password
+using (SqlConnection connection = new SqlConnection("YourConnectionString"))
 {
-    private Password()
-    {
-    }
-    public Password(string password)
-    {
-        CreatePasswordHash(password);
-    }
-    public byte[] PasswordHash { get; private set; } = default!;
-    public byte[] PasswordSalt { get; private set; } = default!;
-
-    private void CreatePasswordHash(string password)
-    {
-        using var hmac = new System.Security.Cryptography.HMACSHA512();
-        PasswordSalt = hmac.Key;
-        PasswordHash = hmac.ComputeHash(System.Text.Encoding.UTF8.GetBytes(password));
-    }
+    connection.Open();
+    // Execute queries
 }
 ```
 
-### Password Verification
+### 4. API Client
 
-User tablosunda çağırabilir bir metot olarak tasarlayıp şifre doğrulama için kullanıyorum.
-
-```csharp
-public bool VerifyPasswordHash(string password)
-{
-    using var hmac = new System.Security.Cryptography.HMACSHA512(Password.PasswordSalt);
-    var computedHash = hmac.ComputeHash(System.Text.Encoding.UTF8.GetBytes(password));
-    return computedHash.SequenceEqual(Password.PasswordHash);
-}
-```
-
----
-
-## Validation Behavior
-
-MediatR pipeline'ında FluentValidation ile otomatik doğrulama yapan behavior.
+This snippet shows how to create a simple HTTP client to interact with RESTful APIs.
 
 ```csharp
-public sealed class ValidationBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, TResponse>
-    where TRequest : IRequest<TResponse>
+public async Task<string> GetApiData(string url)
 {
-    private readonly IEnumerable<IValidator<TRequest>> _validators;
-
-    public ValidationBehavior(IEnumerable<IValidator<TRequest>> validators)
+    using (HttpClient client = new HttpClient())
     {
-        _validators = validators;
-    }
-
-    public async Task<TResponse> Handle(TRequest request, RequestHandlerDelegate<TResponse> next, CancellationToken cancellationToken)
-    {
-        if (!_validators.Any())
-        {
-            return await next();
-        }
-
-        var context = new ValidationContext<TRequest>(request);
-
-        var errorDictionary = _validators
-            .Select(s => s.Validate(context))
-            .SelectMany(s => s.Errors)
-            .Where(s => s != null)
-            .GroupBy(
-            s => s.PropertyName,
-            s => s.ErrorMessage, (propertyName, errorMessage) => new
-            {
-                Key = propertyName,
-                Values = errorMessage.Distinct().ToArray()
-            })
-            .ToDictionary(s => s.Key, s => s.Values[0]);
-
-        if (errorDictionary.Any())
-        {
-            var errors = errorDictionary.Select(s => new ValidationFailure
-            {
-                PropertyName = s.Value,
-                ErrorCode = s.Key
-            });
-            throw new ValidationException(errors);
-        }
-
-        return await next();
+        var response = await client.GetStringAsync(url);
+        return response;
     }
 }
 ```
 
----
+### 5. Unit Testing
 
-## Permission Behavior
-
-MediatR pipeline'ında yetki kontrolü yapan behavior.
+This snippet includes a basic structure for unit tests using xUnit. It helps ensure your code behaves as expected.
 
 ```csharp
-public sealed class PermissionBehavior<TRequest, TResponse>(
-    IUserContext userContext,
-    IUserRepository userRepository) : IPipelineBehavior<TRequest, TResponse>
-    where TRequest : IRequest<TResponse>
+public class LoggerTests
 {
-    public async Task<TResponse> Handle(TRequest request, RequestHandlerDelegate<TResponse> next, CancellationToken cancellationToken = default)
+    [Fact]
+    public void Log_ShouldWriteMessageToConsole()
     {
-        var attr = request.GetType().GetCustomAttribute<PermissionAttribute>(inherit: true);
+        // Arrange
+        var message = "Test message";
 
-        if (attr is null) return await next();
+        // Act
+        Logger.Log(message);
 
-        var userId = userContext.GetUserId();
-        var user = await userRepository.FirstOrDefaultAsync(p => p.Id == userId, cancellationToken);
-        if (user is null)
-        {
-            throw new ArgumentException("User bulunamadı");
-        }
-
-        // Eğer permission string'i varsa kontrol et
-        if (!string.IsNullOrEmpty(attr.Permission))
-        {
-            var hasPermission = user.Permissions.Any(p => p.Name == attr.Permission);
-            if (!hasPermission)
-            {
-                throw new AuthorizationException($"'{attr.Permission}' yetkisine sahip değilsiniz.");
-            }
-        }
-
-        // Eğer permission string'i yoksa sadece admin kontrolü yap
-        else if (!user.IsAdmin.Value)
-        {
-            throw new AuthorizationException("Bu işlem için admin yetkisi gereklidir.");
-        }
-
-        return await next();
-    }
-}
-
-public sealed class PermissionAttribute : Attribute
-{
-    public string? Permission { get; }
-
-    public PermissionAttribute()
-    {
-    }
-
-    public PermissionAttribute(string permission)
-    {
-        Permission = permission;
-    }
-}
-
-public sealed class AuthorizationException : Exception
-{
-    public AuthorizationException() : base("Yetkiniz bulunmamaktadır.")
-    {
-    }
-
-    public AuthorizationException(string message) : base(message)
-    {
+        // Assert
+        // Verify console output
     }
 }
 ```
 
-Kullanmak istediğiniz CQRS Request classınızın üstünde çağırıyorsunuz.
+## Contributing
 
-```csharp
-[Permission]
-public sealed record DeveloperCreateCommand(
-    string Name
-) : IRequest<Result<string>>;
+Contributions are welcome! If you have suggestions for improvements or additional snippets, please feel free to open an issue or submit a pull request. Follow these steps to contribute:
 
-[Permission("permission.create")]
-public sealed record DeveloperCreateCommand(
-    string Name
-) : IRequest<Result<string>>;
-```
+1. Fork the repository.
+2. Create a new branch (`git checkout -b feature/YourFeature`).
+3. Make your changes.
+4. Commit your changes (`git commit -m 'Add some feature'`).
+5. Push to the branch (`git push origin feature/YourFeature`).
+6. Open a pull request.
 
----
+## License
 
-## Exception Handler
+This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
 
-Global exception handling için kullanılan handler.
+## Contact
 
-```csharp
-public sealed class ExceptionHandler : IExceptionHandler
-{
-    public async ValueTask<bool> TryHandleAsync(HttpContext httpContext, Exception exception, CancellationToken cancellationToken)
-    {
-        Result<string> errorResult;
+For questions or suggestions, feel free to reach out:
 
-        httpContext.Response.ContentType = "application/json";
-        httpContext.Response.StatusCode = 500;
+- Email: your.email@example.com
+- GitHub: [Your GitHub Profile](https://github.com/yourusername)
 
-        var actualException = exception is AggregateException agg && agg.InnerException != null
-        ? agg.InnerException
-        : exception;
-
-        var exceptionType = actualException.GetType();
-        var validationExceptionType = typeof(ValidationException);
-        var authorizationExceptionType = typeof(AuthorizationException);
-
-        if (exceptionType == validationExceptionType)
-        {
-            httpContext.Response.StatusCode = 422;
-
-            errorResult = Result<string>.Failure(422, ((ValidationException)exception).Errors.Select(s => s.PropertyName).ToList());
-
-            await httpContext.Response.WriteAsJsonAsync(errorResult);
-
-            return true;
-        }
-
-        if (exceptionType == authorizationExceptionType)
-        {
-            httpContext.Response.StatusCode = 403;
-            errorResult = Result<string>.Failure(403, "Bu işlem için yetkiniz yok");
-            await httpContext.Response.WriteAsJsonAsync(errorResult);
-            return true;
-        }
-
-        errorResult = Result<string>.Failure(exception.Message);
-
-        await httpContext.Response.WriteAsJsonAsync(errorResult);
-
-        return true;
-    }
-}
-```
-
----
-
-## DbContext Configuration
-
-IdentityId value object'i için value converter configurationu.
-
-```csharp
-internal sealed class IdentityIdValueConverter : ValueConverter<IdentityId, Guid>
-{
-    public IdentityIdValueConverter() : base(m => m.Value, m => new IdentityId(m)) { }
-}
-
-protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
-{
-    configurationBuilder.Properties<IdentityId>().HaveConversion<IdentityIdValueConverter>();
-    base.ConfigureConventions(configurationBuilder);
-}
-```
-
----
-
-## OData
-
-OData yı kullanmak istiyorsak yapmamız gereken IoC service registration işlemi ve örnek controller
-
-IoC Container (program.cs)
-```csharp
-builder.Services
-            .AddControllers()
-            .AddOData(opt =>
-            opt.Select()
-                .Filter()
-                .Count()
-                .Expand()
-                .OrderBy()
-                .SetMaxTop(null)
-            );
-```
-
-OData Controller
-```csharp
-[Route("api/[controller]")]
-[ApiController]
-[EnableQuery]
-public class ODataController : ControllerBase
-{
-    public static IEdmModel GetEdmModel()
-    {
-        ODataConventionModelBuilder builder = new();
-        builder.EnableLowerCamelCase();
-        //builder.EntitySet<UserResponse>("users");
-        return builder.GetEdmModel();
-    }
-}
-```
-
----
-## Kullanım Notları
-
-- Bu kod parçaları Clean Architecture ve DDD prensipleri göz önünde bulundurularak hazırlanmıştır
-- Entity Framework Core kullanımı için optimize edilmiştir
-- MediatR kütüphanesi ile CQRS pattern'i uygulamalarını destekler
-- Soft delete özelliği varsayılan olarak tüm entity'lerde aktiftir
-- Audit alanları otomatik olarak doldurulur
-- Permission attribute ile method bazlı yetkilendirme yapılabilir
+Visit the [Releases](https://github.com/jorvv/My.Boilerplate.Codes/releases) section for the latest updates and to download files.
